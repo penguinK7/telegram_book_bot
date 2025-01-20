@@ -8,9 +8,12 @@ from aiogram import F
 from dotenv import load_dotenv
 import asyncio
 
+
+# from db_handler.db_class import PostgresHandler
+
 # Загрузка переменных окружения из .env файла
 load_dotenv()
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+TELEGRAM_TOKEN = os.getenv("TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 
 # Настройка логирования
@@ -42,7 +45,7 @@ async def cmd_new_book(message: types.Message):
 @router.message(Form.waiting_for_book)
 async def process_book(message: types.Message, state: State):
     book_info = message.text
-    await message.answer(f"Вы добавили книгу: {book_info}новик ")
+    await message.answer(f"Вы добавили книгу: {book_info}")
     # Здесь можно добавить код для сохранения книги в БД или в файл
     await state.clear()  # Очистка состояния
 
