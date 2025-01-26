@@ -1,12 +1,19 @@
 import asyncio
-from create_bot import bot, dp, scheduler
+from create_bot import dp, bot, scheduler
+# from db_class import create_tables
 from handlers.start import start_router
-# from work_time.time_func import send_time_msg
 
 async def main():
-    # scheduler.add_job(send_time_msg, 'interval', seconds=10)
-    # scheduler.start()
+    # Создаем таблицы в базе данных
+    # create_tables()
+    
+    # Подключаем роутер
     dp.include_router(start_router)
+    
+    # Запускаем планировщик
+    scheduler.start()
+    
+    # Запускаем бота
     await bot.delete_webhook(drop_pending_updates=True)
     await dp.start_polling(bot)
 

@@ -1,19 +1,38 @@
 import logging
 from aiogram import Bot, Dispatcher
+from aiogram.fsm.storage.redis import RedisStorage
 from aiogram.client.default import DefaultBotProperties
-from aiogram.enums import ParseMode
-from aiogram.fsm.storage.memory import MemoryStorage
 from decouple import config
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from redis.asyncio import Redis
+# from peewee import PostgresqlDatabase
 
-# from db_handler.db_class import PostgresHandler
+# Инициализация Redis
+redis = Redis.from_url(config('REDIS_URL'))
 
-# pg_db = PostgresHandler(config('PG_LINK'))
-scheduler = AsyncIOScheduler(timezone='Europe/Moscow')
+# Инициализация бота
+bot = Bot(
+    token=config('TOKEN'),
+    default=DefaultBotProperties(parse_mode="HTML")
+)
+
+# Настройка хранилища состояний
+storage = RedisStorage(redis=redis)
+dp = Dispatcher(storage=storage)
+
+# Планировщик задач
+scheduler = AsyncIOScheduler()
+
+# Список админов
 admins = [int(admin_id) for admin_id in config('ADMINS').split(',')]
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
+# Логирование
+logging.basicConfig(level=logging.INFO)
 
-bot = Bot(token=config('TOKEN'), default=DefaultBotProperties(parse_mode=ParseMode.HTML))
-dp = Dispatcher(storage=MemoryStorage())
+# Подключение к PostgreSQL
+# database = PostgresqlDatabase(
+#     config('DB_NAME'),
+#     user=config('DB_USER'),
+#     password=config('DB_PASSWORD'),
+#     host=config('DB_HOST')
+# )

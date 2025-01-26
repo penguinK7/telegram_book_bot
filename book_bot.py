@@ -8,9 +8,6 @@ from aiogram import F
 from dotenv import load_dotenv
 import asyncio
 
-
-# from db_handler.db_class import PostgresHandler
-
 # Загрузка переменных окружения из .env файла
 load_dotenv()
 TELEGRAM_TOKEN = os.getenv("TOKEN")
@@ -46,12 +43,11 @@ async def cmd_new_book(message: types.Message):
 async def process_book(message: types.Message, state: State):
     book_info = message.text
     await message.answer(f"Вы добавили книгу: {book_info}")
-    # Здесь можно добавить код для сохранения книги в БД или в файл
-    await state.clear()  # Очистка состояния
+    await state.clear()  
 
 # Запуск бота
 async def main():
-    dp.include_router(router)  # Включаем роутер
+    dp.include_router(router) 
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
