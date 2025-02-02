@@ -1,4 +1,4 @@
-from db_class import objects, User, create_tables
+from db_handler.db_class import objects, User, create_tables
 import asyncio
 
 async def test():

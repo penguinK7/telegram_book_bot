@@ -1,11 +1,11 @@
 import asyncio
 from create_bot import dp, bot, scheduler
-# from db_class import create_tables
+from db_handler.db_class import create_tables
 from handlers.start import start_router
 
 async def main():
     # Создаем таблицы в базе данных
-    # create_tables()
+    create_tables()
     
     # Подключаем роутер
     dp.include_router(start_router)
