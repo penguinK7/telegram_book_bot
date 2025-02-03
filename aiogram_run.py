@@ -2,7 +2,7 @@ import asyncio
 from create_bot import dp, bot, scheduler
 from db_handler.db_class import create_tables
 from handlers.start import start_router
-
+# fdgdfj
 async def main():
     # Создаем таблицы в базе данных
     create_tables()
