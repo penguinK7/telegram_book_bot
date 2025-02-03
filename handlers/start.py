@@ -20,12 +20,10 @@ class Form(StatesGroup):
 
 
 async def register_user(user_id: int, username: str = None):
-    # Используем метод get на модели User с обработкой исключения
     try:
         user = User.get(User.user_id == user_id)
         return user
     except User.DoesNotExist:
-        # Если пользователь не найден, создаем нового
         user = User.create(
             user_id=user_id,
             is_admin=user_id in admins,
@@ -51,7 +49,7 @@ async def cmd_start(message: Message):
 async def cmd_new_book(message: Message, state: FSMContext):
     user = await register_user(message.from_user.id)
     
-    existing_book = Book.select().where(Book.user == user).count()  # Уберите await
+    existing_book = Book.select().where(Book.user == user).count() 
     if existing_book > 0:
         return await message.answer("❌ Вы уже добавили книгу!")
     
@@ -63,15 +61,15 @@ async def cmd_new_book(message: Message, state: FSMContext):
 @start_router.message(Form.waiting_for_book)
 async def process_book(message: Message, state: FSMContext):
     data = await state.get_data()
-    user_id = data['user_id']  # Получаем user_id из состояния
+    user_id = data['user_id']  
     
     if ' - ' not in message.text:
         return await message.answer("❌ Неверный формат! Пример:\n<code>Война и мир - Лев Толстой</code>")
     
     title, author = message.text.split(' - ', 1)
     
-    user = User.get(User.user_id == user_id)  # Получаем объект User по user_id
-    Book.create(title=title.strip(), author=author.strip(), user=user)  # Уберите await
+    user = User.get(User.user_id == user_id) 
+    Book.create(title=title.strip(), author=author.strip(), user=user)  
     await message.answer(f"✅ Книга добавлена:\n\n<b>{title.strip()}</b>\nАвтор: {author.strip()}")
     await state.clear()
 
@@ -80,7 +78,7 @@ async def process_book(message: Message, state: FSMContext):
 @start_router.message(Command('vote'))
 @admin_required
 async def cmd_vote(message: Message):
-    books = Book.select().where(Book.is_active == True)  # Уберите await
+    books = Book.select().where(Book.is_active == True)  
     
     builder = InlineKeyboardBuilder()
     for book in books:
@@ -113,10 +111,10 @@ async def process_vote(callback: CallbackQuery):
         return await callback.answer("❌ Вы уже голосовали за эту книгу!")
     
     # Создаем новый голос
-    Vote.create(user=user, book=book_id)  # Убедитесь, что здесь правильный объект Book
+    Vote.create(user=user, book=book_id)  
     
     # Обновляем количество голосов
-    Book.update(votes=fn.Coalesce(Book.votes, 0) + 1).where(Book.id == book_id).execute()  # Используйте fn.Coalesce
+    Book.update(votes=fn.Coalesce(Book.votes, 0) + 1).where(Book.id == book_id).execute()  
     
     await callback.answer("✅ Голос учтён!")
    
@@ -137,7 +135,7 @@ async def finish_voting(chat_id: int):
 @start_router.message(Command('random'))
 @admin_required
 async def cmd_random(message: Message):
-    books = Book.select().where(Book.is_active == True)  # Уберите await
+    books = Book.select().where(Book.is_active == True) 
     
     if not books:
         return await message.answer("📚 Список книг пуст!")
@@ -148,7 +146,7 @@ async def cmd_random(message: Message):
 @start_router.message(Command('result'))
 @admin_required
 async def cmd_result(message: Message):
-    books = Book.select().order_by(Book.votes.desc())  # Убедитесь, что вы используете правильный синтаксис
+    books = Book.select().order_by(Book.votes.desc())
     
     # Формируем текст для отправки
     if not books:
