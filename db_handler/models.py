@@ -2,15 +2,18 @@ from peewee import Model, BigIntegerField, CharField, BooleanField, DateTimeFiel
 import datetime
 from db_handler.db_class import database
 
+
 class BaseModel(Model):
     class Meta:
         database = database
+
 
 class User(BaseModel):
     user_id = BigIntegerField(unique=True)
     username = CharField(null=True)
     is_admin = BooleanField(default=False)
     created_at = DateTimeField(default=datetime.datetime.now)
+
 
 class Book(BaseModel):
     title = CharField()
@@ -19,6 +22,7 @@ class Book(BaseModel):
     votes = IntegerField(default=0)  
     created_at = DateTimeField(default=datetime.datetime.now)
     is_active = BooleanField(default=True)
+
 
 class Vote(BaseModel):
     user = ForeignKeyField(User, backref='votes')

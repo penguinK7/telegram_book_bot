@@ -14,6 +14,7 @@ from datetime import timedelta
 
 start_router = Router()
 
+
 class Form(StatesGroup):
     waiting_for_book = State()
     waiting_for_rating = State()
@@ -31,6 +32,7 @@ async def register_user(user_id: int, username: str = None):
         )
         return user
 
+
 @start_router.message(CommandStart())
 @admin_required
 async def cmd_start(message: Message):
@@ -42,130 +44,159 @@ async def cmd_start(message: Message):
         "/new_book - добавить книгу\n"
         "/vote - начать голосование\n"
         "/random - случайная книга\n"
-        "/result - результаты\n"        
+        "/result - результаты\n"
     )
+
 
 @start_router.message(Command('new_book'))
 async def cmd_new_book(message: Message, state: FSMContext):
     user = await register_user(message.from_user.id)
-    
-    existing_book = Book.select().where(Book.user == user).count() 
+
+    existing_book = Book.select().where(Book.user == user).count()
     if existing_book > 0:
         return await message.answer("❌ Вы уже добавили книгу!")
-    
+
     await message.answer("📖 Введите название и автора в формате:\n\n<code>Название - Автор</code>")
     await state.set_state(Form.waiting_for_book)
-    await state.update_data(user_id=user.user_id) 
+    await state.update_data(user_id=user.user_id)
 
 
 @start_router.message(Form.waiting_for_book)
 async def process_book(message: Message, state: FSMContext):
     data = await state.get_data()
     user_id = data['user_id']  
-    
+
     if ' - ' not in message.text:
         return await message.answer("❌ Неверный формат! Пример:\n<code>Война и мир - Лев Толстой</code>")
-    
+
     title, author = message.text.split(' - ', 1)
-    
+
     user = User.get(User.user_id == user_id) 
     Book.create(title=title.strip(), author=author.strip(), user=user)  
     await message.answer(f"✅ Книга добавлена:\n\n<b>{title.strip()}</b>\nАвтор: {author.strip()}")
     await state.clear()
 
- 
 
 @start_router.message(Command('vote'))
 @admin_required
 async def cmd_vote(message: Message):
-    books = Book.select().where(Book.is_active == True)  
-    
+    books = Book.select().where(Book.is_active == True)
+
     builder = InlineKeyboardBuilder()
     for book in books:
         builder.button(text=f"{book.title} - {book.author}", callback_data=f"vote_{book.id}")
-    
+
     builder.button(text="Проголосовать ✅", callback_data="submit_vote")
     builder.adjust(1)
-    
+
     await message.answer(
         "🗳 <b>Голосование началось!</b>\nВыберите книги:",
         reply_markup=builder.as_markup()
     )
-    
+
     scheduler.add_job(
         finish_voting,
         'date',
         run_date=datetime.datetime.now() + timedelta(days=3),
         args=[message.chat.id]
     )
-    
+
 
 @start_router.callback_query(F.data.startswith("vote_"))
 async def process_vote(callback: CallbackQuery):
     book_id = int(callback.data.split("_")[1])
     user = await register_user(callback.from_user.id)
-    
+
     # Проверяем, голосовал ли пользователь за эту книгу
     vote_exists = Vote.select().where((Vote.user == user) & (Vote.book == book_id)).exists()
     if vote_exists:
         return await callback.answer("❌ Вы уже голосовали за эту книгу!")
-    
+
     # Создаем новый голос
-    Vote.create(user=user, book=book_id)  
-    
-    # Обновляем количество голосов
-    Book.update(votes=fn.Coalesce(Book.votes, 0) + 1).where(Book.id == book_id).execute()  
-    
+    Vote.create(user=user, book=book_id)
+
+    # Обновляем количество голосов - вот тут все время была ошибка 'BackrefAccessor', так что добавила код ниже
+    # Book.update(votes=fn.Coalesce(Book.votes, 0) + 1).where(Book.id == book_id).execute()
+    book = Book.get(Book.id == book_id) 
+    book.votes += 1
+    book.save()
+
     await callback.answer("✅ Голос учтён!")
-   
+
 
 async def finish_voting(chat_id: int):
+    # срабатывает когда голосование висело три дня (по идее) - не проверяла
     books = await Book.select().where(Book.is_active == True).order_by(Book.votes.desc()).execute()
-    
+
     max_votes = books[0].votes if books else 0
     winners = [book for book in books if book.votes == max_votes]
-    
+
     text = "🏆 Победители:\n" + "\n".join(
         [f"• {book.title} - {book.author} ({book.votes} гол.)" for book in winners]
     ) if len(winners) > 1 else f"🏆 Победитель: {winners[0].title} - {winners[0].author} ({max_votes} гол.)"
-    
+
     await bot.send_message(chat_id, text)
     await Book.update(is_active=False).execute()
 
+
 @start_router.message(Command('random'))
+# добавила эту команду так как в прошлый раз решили так выбирать, когда мало участников
 @admin_required
 async def cmd_random(message: Message):
     books = Book.select().where(Book.is_active == True) 
-    
+
     if not books:
         return await message.answer("📚 Список книг пуст!")
-    
+
     random_book = random.choice(books)
     await message.answer(f"🎲 Случайная книга:\n\n<b>{random_book.title}</b>\nАвтор: {random_book.author}")
 
+# вот с резалт все время ошибка'BackrefAccessor'
+# @start_router.message(Command('result'))
+# @admin_required
+# async def cmd_result(message: Message):
+#     books = Book.select().order_by(fn.Coalesce(Book.votes, 0).desc())
+    
+#     # Формируем текст для отправки
+#     if not books:
+#         await message.answer("📊 Нет доступных книг для голосования.")
+#         return
+    
+#     text = "📊 Результаты голосования:\n\n" + "\n".join(
+#         [f"{i + 1}. {book.title} - {book.author}: {book.votes} гол." 
+#          for i, book in enumerate(books)]
+#     )
+#     await message.answer(text)
+    
 @start_router.message(Command('result'))
 @admin_required
 async def cmd_result(message: Message):
-    books = Book.select().order_by(Book.votes.desc())
-    
-    # Формируем текст для отправки
-    if not books:
-        await message.answer("📊 Нет доступных книг для голосования.")
-        return
-    
-    text = "📊 Результаты голосования:\n\n" + "\n".join(
-        [f"{i + 1}. {book.title} - {book.author}: {book.votes} гол." 
-         for i, book in enumerate(books)]
-    )
-    await message.answer(text)
+    try:
+        books = Book.select()
+        if not books:
+            await message.answer("📊 Нет доступных книг для голосования.")
+            return
+
+        text = "📊 Результаты голосования:\n\n" + "\n".join(
+            [f"{i + 1}. {book.title} - {book.author}: {book.votes} гол."
+             for i, book in enumerate(books)]
+        )
+        await message.answer(text)
+    except Exception as e:
+        await message.answer(f"Произошла ошибка: {e}")
+
 
 @start_router.message(Command('clear'))
 @admin_required
 async def cmd_clear(message: Message):
-    Vote.delete().execute() 
-    Book.delete().execute()  
-    
-    # await message.answer("✅ Все книги и голосования были удалены. Вы можете заново вводить книги и голосовать.")   
-    
+    try:
+        Vote.delete().execute()
+        Book.delete().execute()
+
+        await message.answer("✅ Все книги и голосования были удалены. Вы можете заново вводить книги и голосовать.")
+    except Exception as e:
+        await message.answer(f"Произошла ошибка при очистке базы данных: {e}")
+
+
 async def clear_database(message: Message):
     await cmd_clear(message)
